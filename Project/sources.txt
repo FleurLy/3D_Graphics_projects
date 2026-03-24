@@ -1,0 +1,3 @@
+https://en.wikipedia.org/wiki/Mipmap
+
+https://en.wikipedia.org/wiki/Texture_filtering
