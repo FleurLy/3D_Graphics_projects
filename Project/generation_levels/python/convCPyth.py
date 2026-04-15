@@ -28,7 +28,6 @@ def filtrePyth():
                 ctypes.c_int, # printing =0 (off)
                 ctypes.c_int, # dimX
                 ctypes.c_int, # dimY
-                ctypes.c_int, # dimZ
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS")] # output
     return func
 
@@ -48,7 +47,6 @@ def moyPyth():
                 ctypes.c_int, # maskSize
                 ctypes.c_int, # dimX
                 ctypes.c_int, # dimY
-                ctypes.c_int, # dimZ
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), # output
                 ctypes.c_int] # padMode
     return func
@@ -69,9 +67,44 @@ def medPyth():
                 ctypes.c_int, # maskSize
                 ctypes.c_int, # dimX
                 ctypes.c_int, # dimY
-                ctypes.c_int, # dimZ
                 ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), # output
                 ctypes.c_int] # padMode
     return func
 
+def miNePyth():
+    ext = 'dll' if sys.platform.startswith('win') else 'so'
+    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'so', f'miNe.{ext}')
+    
+    if not os.path.exists(lib_path):
+        raise FileNotFoundError(f"La librairie compilée introuvable: {lib_path}. Veuillez compiler le code C.")
+        
+    dll = ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
+    func = dll.miNe
+    func.restype = None
+    
+    func.argtypes = [ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),#input
+                ctypes.c_int, # dimX
+                ctypes.c_int, # dimY
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), # output
+                ctypes.c_int] # padMode
+    return func
 
+def KaiserPyth():
+    ext = 'dll' if sys.platform.startswith('win') else 'so'
+    lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'so', f'kaiser.{ext}')
+    
+    if not os.path.exists(lib_path):
+        raise FileNotFoundError(f"La librairie compilée introuvable: {lib_path}. Veuillez compiler le code C.")
+        
+    dll = ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
+    func = dll.kaiser
+    func.restype = None
+    
+    func.argtypes = [ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),#input
+                ctypes.c_int, # maskSize
+                ctypes.c_int, # dimX
+                ctypes.c_int, # dimY
+                ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"), # output
+                ctypes.c_int,# padMode
+                ctypes.c_float] #alpha
+    return func

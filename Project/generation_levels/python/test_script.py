@@ -6,22 +6,22 @@ import numpy as np
 import generate_mimap as gm
 
 
-def generate_mipmaps_func(img, mode, maskSize, lambda_val, iterations):
-    if mode == "filtre":
-        levels = gm.filtre(img, lambda_val, iterations)
-    elif mode == "moy":
+def generate_mipmaps_func(img, mode, maskSize):
+    if mode == "moy":
         levels = gm.moy(img, maskSize)
     elif mode == "med":
         levels = gm.med(img, maskSize)
+    elif mode == "miNe":
+        levels = gm.miNe(img)
     else:
-        print("Erreur: Choix de mode inconnu, doit etre dans [med, moy, filtre]")
+        print("Erreur: Choix de mode inconnu, doit etre dans [med, moy, miNe]")
         sys.exit(1)
     return levels   
 
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python test_script.py <chemin_vers_image> <mode de filtrage (med, moy ou filtre)>")
+        print("Usage: python test_script.py <chemin_vers_image> <mode de filtrage (med, moy, miNe)>")
         sys.exit(1)
         
     image_path = sys.argv[1]
@@ -32,28 +32,24 @@ def main():
         
     print(f"Lecture de l'image : {image_path}")
     
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if img is None:
         print(f"Erreur : Impossible de lire l'image {image_path}.")
         sys.exit(1)
         
     print(f"Dimension de l'image originale : {img.shape}")
     
-    if sys.argv[2] not in ["med", "moy", "filtre"]:
-        print("Erreur: Choix de mode inconnu, doit etre dans [med, moy, filtre]")
+    if sys.argv[2] not in ["med", "moy", "miNe"]:
+        print("Erreur: Choix de mode inconnu, doit etre dans [med, moy, miNe]")
         sys.exit(1)
     mode = sys.argv[2]
 
     # arg pour generer les mipmap
-    # pour "filtre"
-    lambda_val = 0.05
-    iterations = 50
-    # pour "med" et "moy"
     maskSize = 3
     
     print("Génération des mipmaps avec filtrage FGP-TV en cours...")
 
-    levels = generate_mipmaps_func(img, mode, maskSize, lambda_val, iterations)
+    levels = generate_mipmaps_func(img, mode, maskSize)
     
     
     output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mipmaps_output")
