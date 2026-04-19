@@ -1,7 +1,8 @@
-# Software 3D Renderer — Python
+# Software 3D Renderer — Python (Mipmapping)
 
 Renderer 3D complet implémenté en Python pur (NumPy).
 Simule le pipeline graphique d'un GPU en logiciel.
+Projet ENSIMAG — Amélioration du pipeline de rendu par **texture mipmapping**.
 
 ---
 
@@ -9,14 +10,15 @@ Simule le pipeline graphique d'un GPU en logiciel.
 
 ```
 renderer/
-├── main.py             → Point d'entrée
+├── main.py             → Point d'entrée + modes de comparaison
 ├── camera.py           → View Matrix (monde → caméra)
 ├── projection.py       → Projection Matrix (perspective)
 ├── graphicPipeline.py  → Pipeline complet (VS, Rasterizer, FS)
-├── mipmap.py           → Construction pyramide MIP + sampling trilinéaire
+├── mipmap.py           → Pyramide MIP + tous les filtres
 ├── readply.py          → Lecteur fichiers PLY ASCII
-├── suzanne.ply         → Mesh 3D (à fournir)
-└── suzanne.png         → Texture (à fournir)
+├── suzanne.ply         → Mesh 3D
+├── suzanne.png         → Texture
+└── output/             → Images générées
 ```
 
 ---
@@ -29,7 +31,7 @@ Sommets .ply (x, y, z, nx, ny, nz, u, v)
         ▼
 ┌──────────────────┐
 │  build_mipmaps() │  Pyramide MIP pré-calculée (une fois)
-│  mipmap.py       │  256→128→64→32→16→...→1 px
+│  mipmap.py       │  Filtres: box | gaussian | lanczos
 └────────┬─────────┘
          │
          ▼
@@ -43,14 +45,15 @@ Sommets .ply (x, y, z, nx, ny, nz, u, v)
 │   Rasterizer     │  back-face culling
 │                  │  AABB + test pixel-dans-triangle
 │                  │  interpolation perspective-correcte
-│                  │  calcul du LOD (dU/dx, dV/dy)
+│                  │  LOD précis (4 dérivées partielles)
 └────────┬─────────┘
          │
          ▼
 ┌──────────────────┐
 │ Fragment Shader  │  Phong (ambiant + diffus + spéculaire)
 │                  │  Toon shading (quantification)
-│                  │  sample_trilinear(mips, u, v, LOD)
+│                  │  Filtre texture configurable :
+│                  │    nearest | bilinear | trilinear | anisotropic
 └────────┬─────────┘
          │
          ▼
@@ -64,57 +67,50 @@ Sommets .ply (x, y, z, nx, ny, nz, u, v)
 
 ---
 
-## Mipmapping — explication
+## Mipmapping — méthodes implémentées
 
-Le mipmapping résout le problème d'aliasing (scintillement)
-sur les textures appliquées à des surfaces éloignées.
+### Filtres de downsampling (construction de la pyramide)
 
-**Construction (build_mipmaps) :**
-On crée une pyramide de versions de la texture, chaque niveau
-étant 2× plus petit que le précédent via une moyenne 2×2 (box filter).
+| Filtre | Description | Coût |
+|--------|-------------|------|
+| `box` | Moyenne uniforme 2×2 — standard, rapide | ★ |
+| `gaussian` | Noyau gaussien séparable 4 taps (σ≈0.85) — moins d'aliasing résiduel | ★★ |
+| `lanczos` | Filtre sinc fenêtré (ordre 2) — plus net, professionnel | ★★★ |
+
+### Filtres de sampling (interpolation lors du rendu)
+
+| Filtre | Description | Qualité | Coût |
+|--------|-------------|---------|------|
+| `nearest` | Nearest-neighbour — référence/baseline | ★ | ★ |
+| `bilinear` | Interpolation 4 voisins sur un niveau | ★★ | ★★ |
+| `trilinear` | Bilinéaire ×2 niveaux + lerp — standard OpenGL | ★★★ | ★★★ |
+| `anisotropic` | Multi-tap directionnel — meilleur sur surfaces obliques | ★★★★ | ★★★★ |
+
+### Calcul du LOD (Level of Detail)
+
+Formule précise selon OpenGL (EXT_texture_lod) :
 
 ```
-Niveau 0 : 256×256  ← texture originale
-Niveau 1 : 128×128
-Niveau 2 :  64×64
-Niveau 3 :  32×32
-...
-Niveau N :   1×1    ← couleur moyenne de toute la texture
+rho   = max( ||dUV/dx||, ||dUV/dy|| ) × tex_size
+LOD   = log2(rho)
+
+avec  ||dUV/dx|| = sqrt(dudx² + dvdx²)
+      ||dUV/dy|| = sqrt(dudy² + dvdy²)
 ```
 
-**Calcul du LOD (Rasterizer) :**
-On mesure à quelle vitesse les UV varient par pixel :
-```
-LOD = log2( max(dU/dx, dV/dy) × taille_texture )
-```
-- Objet proche : faible variation UV → LOD ≈ 0 → texture pleine résolution
-- Objet loin   : grande variation UV → LOD élevé → petit niveau MIP
-
-**Filtrage trilinéaire (sample_trilinear) :**
-On échantillonne les deux niveaux entiers adjacents (floor et ceil du LOD)
-avec un filtrage bilinéaire sur chacun, puis on interpole entre les deux.
-Cela évite les "bandes" visibles entre niveaux MIP.
+Les 4 dérivées partielles `dudx, dvdx, dudy, dvdy` sont calculées
+par résolution d'un système linéaire 2×2 à partir des coordonnées
+des sommets du triangle.
 
 ---
 
-## Format des données
+## Modes de rendu (`main.py`)
 
-**Sommet PLY (8 valeurs) :**
-| Index | Contenu |
-|-------|---------|
-| 0-2 | position monde (x, y, z) |
-| 3-5 | normale (nx, ny, nz) |
-| 6-7 | UV texture (u, v) |
-
-**Après Vertex Shader (16 valeurs) :**
-| Index | Contenu |
-|-------|---------|
-| 0-2 | position NDC |
-| 3-5 | normale monde |
-| 6-8 | vecteur V (vue) |
-| 9-11 | vecteur L (lumière) |
-| 12-13 | UV |
-| 14-15 | NDC (x, y) pour LOD |
+```python
+MODE = "single"      # Rendu avec un seul filtre
+MODE = "compare"     # Grille 2x2 (4 filtres) + comparaison downsampling
+MODE = "mipmap_vis"  # Visualisation de la pyramide MIP (atlas + courbe)
+```
 
 ---
 
@@ -127,21 +123,34 @@ pip install numpy Pillow matplotlib
 ## Lancement
 
 ```bash
+cd renderer/
 python main.py
 ```
 
 ---
 
-## Corrections et améliorations vs code initial
+## Résultats et comparaison
 
-| Fichier | Problème original | Correction |
-|---------|-------------------|------------|
-| `readply.py` | Crash Windows (`\r` non supprimé) | `.strip()` global |
-| `readply.py` | Quads non triangulés | Fan triangulation |
-| `graphicPipeline.py` | UV inversés dans sample() | Axes corrigés |
-| `graphicPipeline.py` | Nearest-neighbour (pixélisé) | Filtrage bilinéaire |
-| `graphicPipeline.py` | Interpolation non perspective-correcte | Pondération par 1/z |
-| `graphicPipeline.py` | Commentaire MIP non implémenté | Mipmapping trilinéaire complet |
-| `graphicPipeline.py` | Division par zéro possible | Guards `< 1e-8` |
-| `camera.py` | Vecteurs non normalisés | Normalisation dans `__init__` |
-| **mipmap.py** | Fichier inexistant | **Nouveau fichier dédié** |
+| Méthode | Anti-aliasing | Flou | Surfaces obliques | Coût |
+|---------|--------------|------|-------------------|------|
+| Sans mipmap (nearest) | ✗ Aliasing fort | ✗ Pixelisé | ✗ | Très faible |
+| Bilinéaire (niveau fixe) | ✗ Aliasing lointain | ✓ | ✗ | Faible |
+| Trilinéaire (standard) | ✓ | ✓ | ✗ Légèrement flou | Modéré |
+| Anisotropique | ✓ | ✓ | ✓ | Élevé |
+
+---
+
+## Corrections et améliorations
+
+| Fichier | Amélioration |
+|---------|-------------|
+| `mipmap.py` | **Nouveau** : 3 filtres de downsampling (box, gaussian, lanczos) |
+| `mipmap.py` | **Nouveau** : 4 filtres de sampling (nearest, bilinear, trilinear, anisotropic) |
+| `mipmap.py` | **Nouveau** : `mipmap_atlas()` pour visualisation de la pyramide |
+| `mipmap.py` | **Nouveau** : `compute_lod_accurate()` — formule OpenGL précise |
+| `graphicPipeline.py` | **Amélioré** : LOD précis avec 4 dérivées partielles |
+| `graphicPipeline.py` | **Amélioré** : vertex shader étendu à 18 attributs |
+| `graphicPipeline.py` | **Amélioré** : filtre de sampling configurable (filter_mode) |
+| `main.py` | **Nouveau** : 3 modes (single, compare, mipmap_vis) |
+| `main.py` | **Nouveau** : comparaison automatique filtres + sauvegarde PNG |
+| `readply.py` | `.strip()` global + fan triangulation pour quads |
