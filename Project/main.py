@@ -49,29 +49,42 @@ if __name__ == "__main__":
         "texture": texture,
     }
 
-    render_modes = ["nearest", "bilinear", "trilinear"]
-    rendered_images = {}
+    output_dir = base_dir / "output_renders"
+    output_dir.mkdir(exist_ok=True)
 
-    for mode in render_modes:
-        print(f"Rendering mode: {mode}")
-        pipeline = GraphicPipeline(WIDTH, HEIGHT, filter_mode=mode)
-        pipeline.draw(vertices, triangles, data)
-        rendered_images[mode] = pipeline.image.copy()
+    chosen_mipmap = "med"
+    render_mode = "trilinear"
+    mipmap_algorithms = ["miNe", "moy", "med", "filtre"]
 
-        output_file = base_dir / f"render_{mode}.png"
-        plt.imsave(output_file, pipeline.image)
-        print(f"Saved: {output_file}")
+    # Deux passes : isotropique (max_anisotropy=1) et anisotropique (max_anisotropy=8)
+    aniso_configs = [
+        ("isotropic",   1),
+        ("anisotropic", 8),
+    ]
 
-    # One side-by-side image for the report/poster.
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-    for index, mode in enumerate(render_modes):
-        axes[index].imshow(rendered_images[mode])
-        axes[index].set_title(mode)
-        axes[index].axis("off")
+    for (label, max_aniso) in aniso_configs:
+        mode_dir = output_dir / label
+        mode_dir.mkdir(exist_ok=True)
 
-    comparison_path = base_dir / "comparison_filters.png"
-    fig.tight_layout()
-    fig.savefig(comparison_path, dpi=200)
-    plt.close(fig)
+        # Nearest et Bilinear (structure de base conservée dans chaque dossier)
+        for basic_mode in ["nearest", "bilinear"]:
+            pipeline = GraphicPipeline(WIDTH, HEIGHT, filter_mode=basic_mode,
+                                       mipmap_mode=chosen_mipmap, max_anisotropy=max_aniso)
+            pipeline.draw(vertices, triangles, data)
+            final_img = np.clip(pipeline.image.copy(), 0.0, 1.0)
+            output_file = mode_dir / f"render_{basic_mode}_{chosen_mipmap}.png"
+            plt.imsave(output_file, final_img)
+            print(f"Saved: {output_file}")
 
-    print(f"Saved: {comparison_path}")
+        # Trilinear x tous les algos de génération dans un sous-dossier
+        trilinear_dir = mode_dir / "trilinear"
+        trilinear_dir.mkdir(exist_ok=True)
+
+        for algo in mipmap_algorithms:
+            pipeline = GraphicPipeline(WIDTH, HEIGHT, filter_mode=render_mode,
+                                       mipmap_mode=algo, max_anisotropy=max_aniso)
+            pipeline.draw(vertices, triangles, data)
+            final_img = np.clip(pipeline.image.copy(), 0.0, 1.0)
+            output_file = trilinear_dir / f"render_{render_mode}_{algo}.png"
+            plt.imsave(output_file, final_img)
+            print(f"Saved: {output_file}")

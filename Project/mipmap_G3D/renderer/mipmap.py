@@ -1,4 +1,10 @@
+import os
+import sys
 import numpy as np
+
+# Assure que convCPyth est importable depuis le meme dossier que mipmap.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import convCPyth
 
 # ============================================================
 #  mipmap.py  —  Pyramide MIP + filtres de texture
@@ -29,6 +35,16 @@ import numpy as np
 
 
 # ──────────────────────────────────────────────────────────────
+#  HANDLES CTYPES (chargés une seule fois à l'import)
+# ──────────────────────────────────────────────────────────────
+
+_box_fn         = convCPyth.boxPyth()
+_gaussian_fn    = convCPyth.gaussianPyth()
+_lkernel_fn     = convCPyth.lanczosKernelPyth()
+_lanczos_fn     = convCPyth.lanczosPyth()
+
+
+# ──────────────────────────────────────────────────────────────
 #  FILTRES DE DOWNSAMPLING  (construction de la pyramide)
 # ──────────────────────────────────────────────────────────────
 
@@ -37,14 +53,12 @@ def _box_downsample(img):
     Box filter : moyenne uniforme de blocs 2x2.
     Filtre standard pour les mipmaps : rapide et correct.
     """
-    H, W = img.shape[0], img.shape[1]
-    H2, W2 = H - (H % 2), W - (W % 2)
-    cropped = img[:H2, :W2]
-    H2, W2  = H2 // 2, W2 // 2
-    return (cropped
-            .reshape(H2, 2, W2, 2, 3)
-            .mean(axis=(1, 3))
-            .astype(np.float32))
+    H, W = img.shape[:2]
+    img_c = np.ascontiguousarray(img.astype(np.float32))
+    out   = np.empty((H // 2, W // 2, 3), dtype=np.float32)
+    out_c = np.ascontiguousarray(out)
+    _box_fn(img_c, H, W, out_c)
+    return out_c
 
 
 def _gaussian_downsample(img):
@@ -55,43 +69,21 @@ def _gaussian_downsample(img):
     box filter, ce qui reduit l'aliasing residuel dans la pyramide.
     Le noyau separe 1D est applique horizontalement puis verticalement.
     """
-    kernel_1d = np.array([0.0625, 0.4375, 0.4375, 0.0625], dtype=np.float32)
     H, W = img.shape[:2]
-    out  = np.zeros_like(img)
-
-    # Convolution horizontale
-    for k, w in enumerate(kernel_1d):
-        shift = k - 1
-        x0 = max(0, shift);  x1 = min(W, W + shift)
-        xd0 = max(0, -shift); xd1 = min(W, W - shift)
-        out[:, xd0:xd1] += w * img[:, x0:x1]
-
-    tmp = out.copy(); out[:] = 0.0
-
-    # Convolution verticale
-    for k, w in enumerate(kernel_1d):
-        shift = k - 1
-        y0 = max(0, shift);  y1 = min(H, H + shift)
-        yd0 = max(0, -shift); yd1 = min(H, H - shift)
-        out[yd0:yd1, :] += w * tmp[y0:y1, :]
-
-    H2, W2 = H - (H % 2), W - (W % 2)
-    return out[:H2:2, :W2:2].astype(np.float32)
+    img_c = np.ascontiguousarray(img.astype(np.float32))
+    out   = np.empty((H // 2, W // 2, 3), dtype=np.float32)
+    out_c = np.ascontiguousarray(out)
+    _gaussian_fn(img_c, H, W, out_c)
+    return out_c
 
 
 def _lanczos_kernel_vals(x, a=2):
     """Noyau de Lanczos : sinc(x) * sinc(x/a), |x| < a."""
-    x = np.asarray(x, dtype=np.float64)
-    result = np.zeros_like(x)
-    mask = np.abs(x) < a
-    xm = x[mask]
-    pi_xm = np.pi * xm
-    result[mask] = np.where(
-        np.abs(xm) < 1e-10,
-        1.0,
-        (np.sin(pi_xm) / pi_xm) * (np.sin(pi_xm / a) / (pi_xm / a))
-    )
-    return result.astype(np.float32)
+    x_f32 = np.ascontiguousarray(np.asarray(x, dtype=np.float32).ravel())
+    result = np.empty(x_f32.size, dtype=np.float32)
+    res_c  = np.ascontiguousarray(result)
+    _lkernel_fn(x_f32, x_f32.size, int(a), res_c)
+    return res_c
 
 
 def _lanczos_downsample(img, a=2):
@@ -102,32 +94,12 @@ def _lanczos_downsample(img, a=2):
     Lanczos de 2a x 2a pixels de l'image source. Produit des
     mipmaps plus nets que le box filter, au prix d'un cout plus eleve.
     """
-    H, W    = img.shape[:2]
-    Ho, Wo  = H // 2, W // 2
-    out     = np.zeros((Ho, Wo, 3), dtype=np.float32)
-
-    xs_all = np.arange(W, dtype=np.float32)
-    ys_all = np.arange(H, dtype=np.float32)
-
-    for j in range(Ho):
-        cy = 2.0 * j + 0.5
-        ys = np.arange(max(0, int(cy) - a + 1), min(H, int(cy) + a + 1))
-        wy = _lanczos_kernel_vals((ys - cy), a)
-
-        for i in range(Wo):
-            cx = 2.0 * i + 0.5
-            xs = np.arange(max(0, int(cx) - a + 1), min(W, int(cx) + a + 1))
-            wx = _lanczos_kernel_vals((xs - cx), a)
-
-            W2d     = np.outer(wy, wx)
-            W2d_sum = W2d.sum()
-            if W2d_sum < 1e-8:
-                continue
-            W2d    /= W2d_sum
-            patch   = img[np.ix_(ys, xs)]
-            out[j, i] = (W2d[:, :, np.newaxis] * patch).sum(axis=(0, 1))
-
-    return np.clip(out, 0.0, 1.0)
+    H, W = img.shape[:2]
+    img_c = np.ascontiguousarray(img.astype(np.float32))
+    out   = np.empty((H // 2, W // 2, 3), dtype=np.float32)
+    out_c = np.ascontiguousarray(out)
+    _lanczos_fn(img_c, H, W, int(a), out_c)
+    return out_c
 
 
 # ──────────────────────────────────────────────────────────────
@@ -241,7 +213,7 @@ def sample_trilinear(mips, u, v, lod):
 
 
 def sample_anisotropic(mips, u, v, lod, dudx, dvdx, dudy, dvdy,
-                        max_samples=8):
+                        max_samples=32):
     """
     Filtrage anisotropique simplifie (approximation EWA multi-tap).
 

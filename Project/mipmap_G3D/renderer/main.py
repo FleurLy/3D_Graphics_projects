@@ -42,20 +42,29 @@ HEIGHT = 288
 # CHEMINS (relatifs au dossier renderer/)
 # ------------------------------------------------------------------
 _dir         = os.path.dirname(os.path.abspath(__file__))
-PLY_PATH     = os.path.join(_dir, "suzanne.ply")
-TEXTURE_PATH = os.path.join(_dir, "suzanne.png")
+PLY_PATH     = os.path.join(_dir, "ply", "damier.ply")
+TEXTURE_PATH = os.path.join(_dir, "texture", "damier.png")
 
 # ------------------------------------------------------------------
 # SCENE
 # ------------------------------------------------------------------
-position = np.array([1.1, 1.1, 1.1])
-lookAt   = np.array([-0.577, -0.577, -0.577])
-up       = np.array([ 0.33333333,  0.33333333, -0.66666667])
-right    = np.array([-0.57735027,  0.57735027,  0.0        ])
+
+# suzanne
+# position = np.array([1.1, 1.1, 1.1])
+# lookAt   = np.array([-0.577, -0.577, -0.577])
+# up       = np.array([ 0.33333333,  0.33333333, -0.66666667])
+# right    = np.array([-0.57735027,  0.57735027,  0.0        ])
+# cam      = Camera(position, lookAt, up, right)
+
+# damier
+position = np.array([0.0, 15.0, -10.0])
+lookAt   = np.array([0.0, -0.555, 0.832])  # Pointe fortement vers le sol
+up       = np.array([0.0, 0.832,  0.555])  
+right    = np.array([1.0, 0.0,    0.0  ])
 cam      = Camera(position, lookAt, up, right)
 
 nearPlane   = 0.1
-farPlane    = 10.0
+farPlane    = 100.0
 fov         = 1.91986
 aspectRatio = WIDTH / HEIGHT
 proj        = Projection(nearPlane, farPlane, fov, aspectRatio)
@@ -69,7 +78,7 @@ vertices, triangles = readply(PLY_PATH)
 print(f"[INFO] Mesh : {vertices.shape[0]} sommets, "
       f"{triangles.shape[0]} triangles")
 
-texture = np.asarray(Image.open(TEXTURE_PATH))
+texture = np.asarray(Image.open(TEXTURE_PATH).convert('RGB'))
 print(f"[INFO] Texture : {texture.shape[1]}x{texture.shape[0]} px")
 
 data = {

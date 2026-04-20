@@ -125,7 +125,7 @@ class GraphicPipeline:
           [14:16] NDC (x, y) -> LOD
           [16:18] position ecran en pixels (px, py) -> LOD precis
         """
-        out = np.zeros(18, dtype=float)
+        out = np.zeros(19, dtype=float)
 
         pos  = np.array([vertex[0], vertex[1], vertex[2], 1.0])
         clip = data['projMatrix'] @ (data['viewMatrix'] @ pos)
@@ -154,6 +154,10 @@ class GraphicPipeline:
         # Position ecran en pixels (pour derivees partielles precises)
         out[16] = (out[0] + 1.0) * 0.5 * self.width
         out[17] = (out[1] + 1.0) * 0.5 * self.height
+        
+        # On sauvegarde 'w' (profondeur en clip space) pour une 
+        # interpolation "perspective-correcte" exacte !
+        out[18] = w
 
         return out
 
@@ -239,9 +243,9 @@ class GraphicPipeline:
                 if a0 >= 0 and a1 >= 0 and a2 >= 0:
                     l0 = a1 / area; l1 = a2 / area; l2 = a0 / area
 
-                    iz0 = 1.0 / v0[2] if abs(v0[2]) > 1e-8 else 1.0
-                    iz1 = 1.0 / v1[2] if abs(v1[2]) > 1e-8 else 1.0
-                    iz2 = 1.0 / v2[2] if abs(v2[2]) > 1e-8 else 1.0
+                    iz0 = 1.0 / v0[18] if abs(v0[18]) > 1e-8 else 1.0
+                    iz1 = 1.0 / v1[18] if abs(v1[18]) > 1e-8 else 1.0
+                    iz2 = 1.0 / v2[18] if abs(v2[18]) > 1e-8 else 1.0
 
                     z = l0 * v0[2] + l1 * v1[2] + l2 * v2[2]
 
@@ -252,8 +256,8 @@ class GraphicPipeline:
                     w1 = (l1 * iz1) / denom
                     w2 = (l2 * iz2) / denom
 
-                    n = v0.shape[0]
-                    interp = v0[3:n] * w0 + v1[3:n] * w1 + v2[3:n] * w2
+                    # On interpole uniquement les attributs de 3 à 17
+                    interp = v0[3:18] * w0 + v1[3:18] * w1 + v2[3:18] * w2
 
                     fragments.append(Fragment(i, j, z, interp, lod,
                                               dudx, dvdx, dudy, dvdy))
@@ -356,7 +360,7 @@ class GraphicPipeline:
         print(f"[INFO] Filtre de sampling : {self.filter_mode}")
 
         nb_vertices = vertices.shape[0]
-        self.newVertices = np.zeros((nb_vertices, 18), dtype=float)
+        self.newVertices = np.zeros((nb_vertices, 19), dtype=float)
         for i in range(nb_vertices):
             self.newVertices[i] = self.VertexShader(vertices[i], data)
 
