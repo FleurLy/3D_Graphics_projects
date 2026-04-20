@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/mipmap_G3D/**)",
+      "Bash(python3)",
+      "Bash(python3 -c ' *)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/**)",
+      "Bash(wslpath \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\max\\\\ensimag\\\\Graph3D\\\\proj\\\\3D_Graphics_projects\\\\Project\\\\mipmap_G3D\")",
+      "Read(//proc/**)",
+      "Read(///wsl.localhost/Ubuntu//**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/mipmap_G3D/renderer/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/generation_levels/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/generation_levels/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/generation_levels/python/**)",
+      "Read(///wsl.localhost/Ubuntu/home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/generation_levels/c/**)",
+      "Bash(wsl -e bash -c \"cd /home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/mipmap_G3D/renderer/c-so && make 2>&1\")",
+      "Bash(wsl -e bash -c 'cd /home/max/ensimag/Graph3D/proj/3D_Graphics_projects/Project/mipmap_G3D/renderer && python3 -c \" *)"
+    ]
+  }
+}

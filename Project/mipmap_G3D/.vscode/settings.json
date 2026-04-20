@@ -1,0 +1,7 @@
+{
+    "claudeCodeChat.permissions.yoloMode": false,
+    "code-runner.executorMap": {
+        "python": "wsl -e bash -c 'cd \"$(wslpath \"$dir\")\" && python3 \"$(wslpath \"$fullFileName\")\"'"
+    },
+    "code-runner.runInTerminal": true
+}
