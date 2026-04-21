@@ -338,3 +338,6 @@ class GraphicPipeline:
             if self.depthBuffer[f.y, f.x] > f.depth:
                 self.depthBuffer[f.y, f.x] = f.depth
                 self.image[f.y, f.x]       = f.output
+
+
+#

@@ -45,3 +45,6 @@ def readply(filename) :
       triangles.append(triangle)
   
   return np.array(vertices),np.array(triangles,dtype=int)
+
+
+#

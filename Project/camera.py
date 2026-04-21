@@ -23,3 +23,5 @@ class Camera:
     ])
 
     return np.matmul(rotation,translation)
+
+    #
