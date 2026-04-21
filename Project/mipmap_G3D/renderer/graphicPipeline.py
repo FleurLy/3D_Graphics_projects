@@ -226,7 +226,7 @@ class GraphicPipeline:
 
                     if abs(denom) < 1e-12:
                         continue
-                    z = z = (lambda0*iz0*v0[18] + lambda1*iz1*v1[18] + lambda2*iz2*v2[18]) / denom
+                    z = 1.0 / denom
 
                     w0 = (lambda0 * iz0) / denom
                     w1 = (lambda1 * iz1) / denom
@@ -335,15 +335,15 @@ class GraphicPipeline:
         for i in range(nb_vertices):
             self.newVertices[i] = self.VertexShader(vertices[i], data)
 
-        all_fragments = []
+        fragments = []
         for tri in triangles:
             v0 = self.newVertices[tri[0]]
             v1 = self.newVertices[tri[1]]
             v2 = self.newVertices[tri[2]]
-            all_fragments.extend(self.Rasterizer(v0, v1, v2))
+            fragments.extend(self.Rasterizer(v0, v1, v2))
 
 
-        for f in all_fragments:
+        for f in fragments:
             self.fragmentShader(f, data)
             if self.depthBuffer[f.y, f.x] > f.depth:
                 self.depthBuffer[f.y, f.x] = f.depth
