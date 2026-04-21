@@ -15,13 +15,9 @@ class Fragment:
     """
     Un Fragment = un pixel candidat emis par le rasterizer.
 
-    Attributs :
-      x, y              : coordonnees pixel (entiers)
-      depth             : profondeur z NDC (pour le depth test)
-      interpolated_data : attributs interpoles (N, V, L, UV, ...)
+    Attributs added:
       lod               : LOD isotropique calcule
       dudx,dvdx,dudy,dvdy : derivees partielles UV (pour anisotropique)
-      output            : couleur finale RGB [0,1]
     """
 
     def __init__(self, x, y, depth, interpolated_data, lod=0.0,
@@ -47,8 +43,7 @@ class GraphicPipeline:
                  filter_mode="trilinear",
                  downsample_filter="box"):
         """
-        Parametres :
-          width, height      : resolution de l'image de sortie
+        Parametres added :
           filter_mode        : filtre de sampling ("nearest", "bilinear",
                                "trilinear", "anisotropic")
           downsample_filter  : filtre de downsampling pour la pyramide
@@ -66,23 +61,7 @@ class GraphicPipeline:
    
    
     def VertexShader(self, vertex, data):
-        """
-        Transforme un sommet monde -> NDC et calcule N, V, L.
-
-        Entree  (vertex, 8 valeurs) :
-          [0:3]  position monde
-          [3:6]  normale
-          [6:8]  UV texture
-
-        Sortie (18 valeurs) :
-          [0:3]  position NDC
-          [3:6]  normale monde
-          [6:9]  vecteur V (vue)
-          [9:12] vecteur L (lumiere)
-          [12:14] UV
-          [14:16] NDC (x, y) -> LOD
-          [16:18] position ecran en pixels (px, py) -> LOD precis
-        """
+        
         outputVertex = np.zeros(19, dtype=float)
 
         vec  = np.array([vertex[0], vertex[1], vertex[2], 1.0])
@@ -108,59 +87,42 @@ class GraphicPipeline:
         outputVertex[12] = vertex[6]   
         outputVertex[13] = vertex[7]   
 
-        outputVertex[14] = outputVertex[0]      # NDC x
-        outputVertex[15] = outputVertex[1]      # NDC y
+        outputVertex[14] = outputVertex[0]      
+        outputVertex[15] = outputVertex[1]      
 
         # Position ecran en pixels (pour derivees partielles precises)
         outputVertex[16] = (outputVertex[0] + 1.0) * 0.5 * self.width
         outputVertex[17] = (outputVertex[1] + 1.0) * 0.5 * self.height
         
-        # On sauvegarde 'w' (profondeur en clip space) pour une 
-        # interpolation "perspective-correcte" exacte !
         outputVertex[18] = w
 
         return outputVertex
 
-    # ==============================================================
-    #  ETAPE 2 — RASTERIZER avec LOD precis (4 derivees partielles)
-    # ==============================================================
-
+    
+    
     def Rasterizer(self, v0, v1, v2):
-        """
-        Convertit un triangle en liste de Fragments.
-
-        Calcul du LOD precis (formule OpenGL) :
-          On estime les 4 derivees partielles des UV :
-            dU/dx, dV/dx (variation selon x ecran)
-            dU/dy, dV/dy (variation selon y ecran)
-          via les rapports entre les sommets du triangle.
-
-          LOD = log2( max( ||dUV/dx||, ||dUV/dy|| ) x tex_size )
-
-          Cette formule est plus correcte que l'approximation diagonale
-          max(|dU/dx|, |dV/dy|) qui ignorait dV/dx et dU/dy.
-        """
+        
         fragments = []
 
-        # ---- Back-face culling --------------------------------
+        #culling backface
         area = edgeSide(v0, v1, v2)
         if area <= 0:
             return fragments
 
-        # ---- Conversion NDC -> pixels --------------------------
+        # Conversion NDC -> pixels pour calcul de la bounding box et des derivees partielles
         def ndc_to_px(v):
             return np.array([(v[0] + 1.0) * 0.5 * self.width,
                              (v[1] + 1.0) * 0.5 * self.height])
 
         p0 = ndc_to_px(v0); p1 = ndc_to_px(v1); p2 = ndc_to_px(v2)
 
-        # ---- AABB clippee aux bords de l'image ----------------
+        # AABBbox du triangle en pixels
         A = np.floor(np.min([p0, p1, p2], axis=0)).astype(int)
         B = np.ceil( np.max([p0, p1, p2], axis=0)).astype(int)
         A = np.clip(A, [0, 0], [self.width - 1, self.height - 1])
         B = np.clip(B, [0, 0], [self.width - 1, self.height - 1])
 
-        # ---- Calcul LOD precis (4 derivees partielles) ----------
+        #Calcul des derivees partielles dU/dx, dU/dy, dV/dx, dV/dy
         u0, v_0 = v0[12], v0[13]
         u1, v_1 = v1[12], v1[13]
         u2, v_2 = v2[12], v2[13]
@@ -224,24 +186,10 @@ class GraphicPipeline:
 
         return fragments
 
-    # ==============================================================
-    #  ETAPE 3 — FRAGMENT SHADER (Phong + filtre configurable)
-    # ==============================================================
-
+   
+   
     def fragmentShader(self, fragment, data):
-        """
-        Calcule la couleur finale : eclairage de Phong + texture.
-
-        Le filtre de texture est selectionne via self.filter_mode :
-          "nearest"     -> sample_nearest sur le niveau floor(LOD)
-          "bilinear"    -> sample_bilinear sur le niveau floor(LOD)
-          "trilinear"   -> sample_trilinear (standard)
-          "anisotropic" -> sample_anisotropic (multi-tap directionnel)
-
-        Modele de Phong :
-          phong = ka*ambiant + kd*diffus + ks*speculaire
-          avec toon shading (quantification en niveaux discrets).
-        """
+        
         N = fragment.interpolated_data[0:3]
         n_len = np.linalg.norm(N)
         if n_len < 1e-8:
@@ -268,12 +216,12 @@ class GraphicPipeline:
 
         ka = 0.1; kd = 0.9; ks = 0.3
         phong = ka * ambient + kd * diffuse + ks * specular
-        phong = np.ceil(phong * 4 + 1) / 6.0  # toon shading
+        phong = np.ceil(phong * 4 + 1) / 6.0  
 
         u = fragment.interpolated_data[9]
         v = fragment.interpolated_data[10]
 
-        # --- Echantillonnage de texture -------------------------
+        # echantillonnage de la texture selon le mode choisi et LOD calcule
         fm = self.filter_mode
 
         if fm == "nearest":
@@ -298,19 +246,11 @@ class GraphicPipeline:
 
         fragment.output = np.array([phong, phong, phong]) * tex_color
 
-    # ==============================================================
-    #  BOUCLE PRINCIPALE
-    # ==============================================================
-
+  
+  
+  
     def draw(self, vertices, triangles, data):
-        """
-        Execute le pipeline complet.
-
-          1. Construction de la pyramide MIP (pré-calcul)
-          2. Vertex Shader sur tous les sommets
-          3. Rasterization de chaque triangle
-          4. Fragment Shader + Depth Test sur chaque fragment
-        """
+        
         print(f"[INFO] Construction pyramide MIP "
               f"(downsample={self.downsample_filter})...")
         self.mips = build_mipmaps(data['texture'], self.downsample_filter)
@@ -319,25 +259,26 @@ class GraphicPipeline:
               f"a {self.mips[-1].shape[1]}x{self.mips[-1].shape[0]})")
         print(f"[INFO] Filtre de sampling : {self.filter_mode}")
 
+        #Calling vertex shader
         nb_vertices = vertices.shape[0]
         self.newVertices = np.zeros((nb_vertices, 19), dtype=float)
         for i in range(nb_vertices):
             self.newVertices[i] = self.VertexShader(vertices[i], data)
 
-        all_fragments = []
-        for tri in triangles:
-            v0 = self.newVertices[tri[0]]
-            v1 = self.newVertices[tri[1]]
-            v2 = self.newVertices[tri[2]]
-            all_fragments.extend(self.Rasterizer(v0, v1, v2))
+        fragments = []
+        #Calling Rasterizer
+        for t in triangles:
+            v0 = self.newVertices[t[0]]
+            v1 = self.newVertices[t[1]]
+            v2 = self.newVertices[t[2]]
+            fragments.extend(self.Rasterizer(v0, v1, v2))
 
-        print(f"[INFO] {len(all_fragments)} fragments generes")
 
-        for f in all_fragments:
+        for f in fragments:
             self.fragmentShader(f, data)
+            #depth test
             if self.depthBuffer[f.y, f.x] > f.depth:
                 self.depthBuffer[f.y, f.x] = f.depth
                 self.image[f.y, f.x]       = f.output
 
 
-#
