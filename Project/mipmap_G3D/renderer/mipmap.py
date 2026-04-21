@@ -258,12 +258,16 @@ def sample_anisotropic(mips, u, v, lod, dudx, dvdx, dudy, dvdy,
     ratio   = max(mag_x, mag_y) / min(mag_x, mag_y)
     n_samp  = int(np.clip(round(ratio), 1, max_samples))
 
+    # dudx/dvdx/dudy/dvdy are already in UV per screen-pixel.
+    # Keep the anisotropic tap spacing in UV-space; dividing by tex_size
+    # again collapses the footprint so the taps nearly coincide.
+    step_count = max(n_samp, 1)
     if mag_x >= mag_y:
-        step_u = dudx / (n_samp * tex_size + 1e-10)
-        step_v = dvdx / (n_samp * tex_size + 1e-10)
+        step_u = dudx / step_count
+        step_v = dvdx / step_count
     else:
-        step_u = dudy / (n_samp * tex_size + 1e-10)
-        step_v = dvdy / (n_samp * tex_size + 1e-10)
+        step_u = dudy / step_count
+        step_v = dvdy / step_count
 
     color = np.zeros(3, dtype=np.float32)
     u_s   = u - step_u * (n_samp - 1) / 2.0
