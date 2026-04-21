@@ -5,73 +5,75 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-static float lanczos_val(double x, int a) {
-    double da = (double)a;
-    if (x <= -da || x >= da) return 0.0f;
-    if (x > -1e-10 && x < 1e-10) return 1.0f;
+float lanczos_val(double x, int largeur) {
+    double ax = fabs(x);
+    if (ax >= (double)largeur) return 0.0f;
+    if (ax < 1e-10) return 1.0f;
     double pi_x = M_PI * x;
-    return (float)((sin(pi_x) / pi_x) * (sin(pi_x / da) / (pi_x / da)));
+    return (float)((sin(pi_x) / pi_x) * (sin(pi_x / largeur) / (pi_x / largeur)));
 }
 
-/*
- * lanczos_downsample : filtre Lanczos ordre a + sous-echantillonnage x2.
- * img : H*W*3 float [0..1], out : (H/2)*(W/2)*3 float [0..1]
- */
 void lanczos_downsample(float *img, int H, int W, int a, float *out) {
-    int Ho = H / 2;
-    int Wo = W / 2;
+    int newH = H / 2;
+    int newW = W / 2;
 
-    for (int j = 0; j < Ho; j++) {
-        double cy  = 2.0 * j + 0.5;
-        int iy     = (int)cy;
-        int ys0    = iy - a + 1; if (ys0 < 0) ys0 = 0;
-        int ys1    = iy + a + 1; if (ys1 > H) ys1 = H;
-        int ny     = ys1 - ys0;
+    for (int j = 0; j < newH; j++) {
+        double centreY = 2.0 * j + 0.5; 
+        
+        int borneInfY = (int)centreY - a + 1; if (borneInfY < 0) borneInfY = 0;
+        int borneSupY = (int)centreY + a + 1; if (borneSupY > H) borneSupY = H;
+        int HeightRect = borneSupY - borneInfY;
 
-        float *wy = (float *) malloc(ny * sizeof(float));
-        for (int k = 0; k < ny; k++)
-            wy[k] = lanczos_val((ys0 + k) - cy, a);
+        float *PoidsVert = (float *) malloc(HeightRect * sizeof(float));
+        for (int k = 0; k < HeightRect; k++)
+            PoidsVert[k] = lanczos_val((borneInfY + k) - centreY, a);
 
-        for (int i = 0; i < Wo; i++) {
-            double cx = 2.0 * i + 0.5;
-            int ix    = (int)cx;
-            int xs0   = ix - a + 1; if (xs0 < 0) xs0 = 0;
-            int xs1   = ix + a + 1; if (xs1 > W) xs1 = W;
-            int nx    = xs1 - xs0;
+        for (int i = 0; i < newW; i++) {
+            double centreX = 2.0 * i + 0.5;            
+            int borneInfX = (int)centreX - a + 1; if (borneInfX < 0) borneInfX = 0;
+            int borneSupX = (int)centreX + a + 1; if (borneSupX > W) borneSupX = W;
+            int WidthRect = borneSupX - borneInfX;
 
-            float *wx = (float *) malloc(nx * sizeof(float));
-            for (int k = 0; k < nx; k++)
-                wx[k] = lanczos_val((xs0 + k) - cx, a);
+            float *PoidsHoriz = (float *) malloc(WidthRect * sizeof(float));
+            for (int k = 0; k < WidthRect; k++)
+                PoidsHoriz[k] = lanczos_val((borneInfX + k) - centreX, a);
 
-            /* somme des poids 2D */
-            float w_sum = 0.0f;
-            for (int ky = 0; ky < ny; ky++)
-                for (int kx = 0; kx < nx; kx++)
-                    w_sum += wy[ky] * wx[kx];
+            // Somme des poids pour normalisation
+            float sommePoids = 0.0f;
+            for (int yR = 0; yR < HeightRect; yR++) {
+                for (int xR = 0; xR < WidthRect; xR++) {
+                    sommePoids += PoidsVert[yR] * PoidsHoriz[xR];
+                }
+            }
 
-            float r = 0.0f, g = 0.0f, b = 0.0f;
-            if (w_sum >= 1e-8f) {
-                float inv = 1.0f / w_sum;
-                for (int ky = 0; ky < ny; ky++) {
-                    int y = ys0 + ky;
-                    for (int kx = 0; kx < nx; kx++) {
-                        int x   = xs0 + kx;
-                        float w = wy[ky] * wx[kx] * inv;
-                        int base = (y * W + x) * 3;
-                        r += w * img[base+0];
-                        g += w * img[base+1];
-                        b += w * img[base+2];
+            float rgb[3] = {0.0f, 0.0f, 0.0f};
+
+            if (sommePoids > 1e-8f) {
+                for (int yR = 0; yR < HeightRect; yR++) {
+                    int y = borneInfY + yR;
+                    for (int xR = 0; xR < WidthRect; xR++) {
+                        int x = borneInfX + xR;
+                        float poidsFinal = (PoidsVert[yR] * PoidsHoriz[xR]) / sommePoids;
+                        
+                        int indImg = (y * W + x) * 3;
+                        rgb[0] += poidsFinal * img[indImg];
+                        rgb[1] += poidsFinal * img[indImg + 1];
+                        rgb[2] += poidsFinal * img[indImg + 2];
                     }
                 }
             }
 
-            int obase = (j * Wo + i) * 3;
-            out[obase+0] = r < 0.0f ? 0.0f : (r > 1.0f ? 1.0f : r);
-            out[obase+1] = g < 0.0f ? 0.0f : (g > 1.0f ? 1.0f : g);
-            out[obase+2] = b < 0.0f ? 0.0f : (b > 1.0f ? 1.0f : b);
+            // Remplissage de out avec clamping
+            int indOut = (j * newW + i) * 3;
+            for (int c = 0; c < 3; c++) {
+                float val = rgb[c];
+                if (val < 0.0f) val = 0.0f;
+                if (val > 1.0f) val = 1.0f;
+                out[indOut + c] = val;
+            }
 
-            free(wx);
+            free(PoidsHoriz);
         }
-        free(wy);
+        free(PoidsVert);
     }
 }
