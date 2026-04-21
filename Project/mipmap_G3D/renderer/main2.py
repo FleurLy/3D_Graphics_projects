@@ -39,10 +39,8 @@ def make_projection(width, height, near=0.1, far=100.0, fov=1.91986):
 
 def load_scene(ply_path, texture_path, cam, cam_position, proj, light_position):
     vertices, triangles = readply(ply_path)
-    print(f"[INFO] Mesh : {vertices.shape[0]} sommets, {triangles.shape[0]} triangles")
 
     texture = np.asarray(Image.open(texture_path).convert('RGB'))
-    print(f"[INFO] Texture : {texture.shape[1]}x{texture.shape[0]} px")
 
     data = {
         'viewMatrix'    : cam.getMatrix(),
@@ -71,7 +69,6 @@ def save_image(img, directory, filename):
     os.makedirs(directory, exist_ok=True)
     out_path = os.path.join(directory, filename)
     Image.fromarray((np.clip(img, 0, 1) * 255).astype(np.uint8)).save(out_path)
-    print(f"[SAVE] {out_path}")
 
 
 
@@ -110,10 +107,8 @@ def _mipmap_dir(base, image_name, downsample_filter):
 def mode_single(vertices, triangles, data, width, height,
                 filter_mode, downsample_filter,
                 image_name="", output_dir=None, save=True, show=False):
-    print(f"\n=== Rendu : {filter_mode} / {downsample_filter} ===")
     img, dt = render_with_filter(vertices, triangles, data, width, height,
                                   filter_mode, downsample_filter)
-    print(f"[INFO] Rendu termine en {dt:.2f}s")
 
     if save and output_dir:
         d = _filter_dir(output_dir, image_name, filter_mode, downsample_filter)
@@ -138,19 +133,16 @@ def mode_compare(vertices, triangles, data, width, height,
 
     results = {}; times = {}
     for fm in sampling_filters:
-        print(f"\n=== Rendu : {fm} ===")
         img, dt = render_with_filter(vertices, triangles, data, width, height,
                                       fm, downsample_filter)
         results[fm] = img; times[fm] = dt
         if save and output_dir:
             d = _filter_dir(output_dir, image_name, fm, downsample_filter)
-            save_image(img, d, "render.png")
 
         if fm in _ANISOTROPIC_FILTERS and save and output_dir:
             for dsf in downsample_filters:
                 if dsf == downsample_filter:
                     continue
-                print(f"  -> {fm} / downsampling={dsf}")
                 img_dsf, _ = render_with_filter(vertices, triangles, data, width, height,
                                                  fm, dsf)
                 d = _filter_dir(output_dir, image_name, fm, dsf)
@@ -169,14 +161,11 @@ def mode_compare(vertices, triangles, data, width, height,
         d = _comparison_dir(output_dir, image_name)
         os.makedirs(d, exist_ok=True)
         fig.savefig(os.path.join(d, "filters.png"), dpi=150, bbox_inches='tight')
-        print(f"[SAVE] {os.path.join(d, 'filters.png')}")
     if show:
         plt.show()
 
-    print("\n=== Comparaison des filtres de downsampling ===")
     ds_results = {}; ds_times = {}
     for dsf in downsample_filters:
-        print(f"  -> downsampling={dsf}")
         img, dt = render_with_filter(vertices, triangles, data, width, height,
                                       "trilinear", dsf)
         ds_results[dsf] = img; ds_times[dsf] = dt
@@ -197,20 +186,14 @@ def mode_compare(vertices, triangles, data, width, height,
         d = _comparison_dir(output_dir, image_name)
         os.makedirs(d, exist_ok=True)
         fig2.savefig(os.path.join(d, "downsample.png"), dpi=150, bbox_inches='tight')
-        print(f"[SAVE] {os.path.join(d, 'downsample.png')}")
     if show:
         plt.show()
 
 
 def mode_mipmap_vis(texture, downsample_filter="box",
                      image_name="", output_dir=None, save=True, show=False):
-    print("\n=== Visualisation de la pyramide MIP ===")
     mips  = build_mipmaps(texture, downsample_filter)
     atlas = mipmap_atlas(mips)
-
-    print(f"[INFO] {len(mips)} niveaux MIP :")
-    for i, m in enumerate(mips):
-        print(f"  Level {i:2d} : {m.shape[1]:4d} x {m.shape[0]:4d} px")
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 5),
                               gridspec_kw={'width_ratios': [3, 1]})
@@ -230,7 +213,6 @@ def mode_mipmap_vis(texture, downsample_filter="box",
         d = _mipmap_dir(output_dir, image_name, downsample_filter)
         os.makedirs(d, exist_ok=True)
         fig.savefig(os.path.join(d, "pyramid.png"), dpi=150, bbox_inches='tight')
-        print(f"[SAVE] {os.path.join(d, 'pyramid.png')}")
     if show:
         plt.show()
 
