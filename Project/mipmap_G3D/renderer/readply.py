@@ -38,11 +38,11 @@ def readply(filename) :
     
     if state == 2 :
       line = line.split(' ')
-      line.pop(0)
-      triangle =[]
-      for l in line:
-        triangle.append(int(l))
-      triangles.append(triangle)
+      n = int(line.pop(0))
+      indices = [int(l) for l in line]
+      # fan triangulation: [0,1,2], [0,2,3], [0,3,4], ...
+      for k in range(1, n - 1):
+        triangles.append([indices[0], indices[k], indices[k + 1]])
   
   return np.array(vertices),np.array(triangles,dtype=int)
 

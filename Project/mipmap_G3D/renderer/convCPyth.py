@@ -32,6 +32,17 @@ def gaussianPyth():
     ]
     return func
 
+def lanczosKernelPyth():
+    func = load('lanczos_kernel_vals').lanczos_kernel_vals
+    func.restype = None
+    func.argtypes = [
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),  # x
+        ctypes.c_int,                                      # size
+        ctypes.c_int,                                      # a
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),  # out
+    ]
+    return func
+
 def lanczosPyth():
     func = load('lanczos_downsample').lanczos_downsample
     func.restype = None
