@@ -3,50 +3,10 @@ from mipmap import (build_mipmaps, sample_nearest, sample_bilinear,
                     sample_trilinear, sample_anisotropic,
                     compute_lod_accurate)
 
-# ============================================================
-#  graphicPipeline.py
-#  Pipeline graphique 3D "software renderer" complet.
-#
-#  Etapes du pipeline :
-#    1. Pre-calcul mipmaps  -> pyramide de textures
-#    2. Vertex Shader       -> transforme les sommets monde -> NDC
-#    3. Rasterizer          -> triangle -> fragments (pixels candidats)
-#                             + calcul du LOD precis (4 derivees partielles)
-#    4. Fragment Shader     -> Phong + filtre de texture configurable
-#    5. Depth Test          -> ne garde que le fragment le plus proche
-#
-#  Filtres disponibles (parametre FILTER_MODE dans main.py) :
-#    "nearest"      -> nearest-neighbour (baseline, reference)
-#    "bilinear"     -> bilineaire sur un seul niveau MIP
-#    "trilinear"    -> bilineaire x2 niveaux + interpolation (standard)
-#    "anisotropic"  -> anisotropique simplifie (meilleur sur surfaces obliques)
-#
-#  Filtres de downsampling (parametre DOWNSAMPLE_FILTER dans main.py) :
-#    "box"          -> box filter (standard, rapide)
-#    "gaussian"     -> gaussien 4 taps (moins d'aliasing residuel)
-#    "lanczos"      -> Lanczos ordre 2 (plus net, plus lent)
-#
-#  Donnees par sommet (8 valeurs dans le .ply) :
-#    [0] x, [1] y, [2] z   -> position monde
-#    [3] nx,[4] ny,[5] nz  -> normale
-#    [6] u, [7] v          -> coordonnees de texture
-#
-#  Donnees apres vertex shader (18 valeurs) :
-#    [0:3]  position NDC
-#    [3:6]  normale monde
-#    [6:9]  vecteur V (camera - sommet)
-#    [9:12] vecteur L (lumiere - sommet)
-#    [12:14] coordonnees UV
-#    [14:16] coordonnees NDC (x,y) -> pour LOD
-#    [16:18] coordonnees ecran (px, py) -> pour LOD precis
-# ============================================================
 
 
 def edgeSide(p, v0, v1):
-    """
-    Produit vectoriel 2D de (v0->v1) x (v0->p).
-    Positif -> p a gauche de l'arete ; negatif -> a droite ; 0 -> sur l'arete.
-    """
+
     return ((p[0]  - v0[0]) * (v1[1] - v0[1])
           - (p[1]  - v0[1]) * (v1[0] - v0[0]))
 
@@ -103,10 +63,8 @@ class GraphicPipeline:
         self.depthBuffer = np.ones((height, width), dtype=float)
         self.mips        = None
 
-    # ==============================================================
-    #  ETAPE 1 — VERTEX SHADER
-    # ==============================================================
-
+   
+   
     def VertexShader(self, vertex, data):
         """
         Transforme un sommet monde -> NDC et calcule N, V, L.
@@ -125,41 +83,43 @@ class GraphicPipeline:
           [14:16] NDC (x, y) -> LOD
           [16:18] position ecran en pixels (px, py) -> LOD precis
         """
-        out = np.zeros(19, dtype=float)
+        outputVertex = np.zeros(19, dtype=float)
 
-        pos  = np.array([vertex[0], vertex[1], vertex[2], 1.0])
-        clip = data['projMatrix'] @ (data['viewMatrix'] @ pos)
-        w    = clip[3]
+        vec  = np.array([vertex[0], vertex[1], vertex[2], 1.0])
+        vec = np.matmul(data['projMatrix'],np.matmul(data['viewMatrix'],vec))
+        w    = vec[3]
 
-        out[0] = clip[0] / w
-        out[1] = clip[1] / w
-        out[2] = clip[2] / w
+        outputVertex[0] = vec[0] / w
+        outputVertex[1] = vec[1] / w
+        outputVertex[2] = vec[2] / w
 
-        out[3] = vertex[3]; out[4] = vertex[4]; out[5] = vertex[5]
+        outputVertex[3] = vertex[3] 
+        outputVertex[4] = vertex[4]
+        outputVertex[5] = vertex[5]
 
-        out[6]  = data['cameraPosition'][0] - vertex[0]
-        out[7]  = data['cameraPosition'][1] - vertex[1]
-        out[8]  = data['cameraPosition'][2] - vertex[2]
+        outputVertex[6]  = data['cameraPosition'][0] - vertex[0]
+        outputVertex[7]  = data['cameraPosition'][1] - vertex[1]
+        outputVertex[8]  = data['cameraPosition'][2] - vertex[2]
 
-        out[9]  = data['lightPosition'][0] - vertex[0]
-        out[10] = data['lightPosition'][1] - vertex[1]
-        out[11] = data['lightPosition'][2] - vertex[2]
+        outputVertex[9]  = data['lightPosition'][0] - vertex[0]
+        outputVertex[10] = data['lightPosition'][1] - vertex[1]
+        outputVertex[11] = data['lightPosition'][2] - vertex[2]
 
-        out[12] = vertex[6]   # u
-        out[13] = vertex[7]   # v
+        outputVertex[12] = vertex[6]   
+        outputVertex[13] = vertex[7]   
 
-        out[14] = out[0]      # NDC x
-        out[15] = out[1]      # NDC y
+        outputVertex[14] = outputVertex[0]      # NDC x
+        outputVertex[15] = outputVertex[1]      # NDC y
 
         # Position ecran en pixels (pour derivees partielles precises)
-        out[16] = (out[0] + 1.0) * 0.5 * self.width
-        out[17] = (out[1] + 1.0) * 0.5 * self.height
+        outputVertex[16] = (outputVertex[0] + 1.0) * 0.5 * self.width
+        outputVertex[17] = (outputVertex[1] + 1.0) * 0.5 * self.height
         
         # On sauvegarde 'w' (profondeur en clip space) pour une 
         # interpolation "perspective-correcte" exacte !
-        out[18] = w
+        outputVertex[18] = w
 
-        return out
+        return outputVertex
 
     # ==============================================================
     #  ETAPE 2 — RASTERIZER avec LOD precis (4 derivees partielles)

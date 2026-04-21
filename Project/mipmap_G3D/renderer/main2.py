@@ -11,9 +11,8 @@ from readply         import readply
 from mipmap          import build_mipmaps, mipmap_atlas
 
 
-# ------------------------------------------------------------------
+
 # CAMERAS PRESETS
-# ------------------------------------------------------------------
 
 def make_camera_damier():
     position = np.array([0.0, 15.0, -10.0])
@@ -31,9 +30,8 @@ def make_camera_suzanne():
     return Camera(position, lookAt, up, right), position
 
 
-# ------------------------------------------------------------------
-# SCENE SETUP
-# ------------------------------------------------------------------
+
+# scene setup
 
 def make_projection(width, height, near=0.1, far=100.0, fov=1.91986):
     return Projection(near, far, fov, width / height)
@@ -56,9 +54,8 @@ def load_scene(ply_path, texture_path, cam, cam_position, proj, light_position):
     return vertices, triangles, texture, data
 
 
-# ------------------------------------------------------------------
+
 # RENDU
-# ------------------------------------------------------------------
 
 def render_with_filter(vertices, triangles, data, width, height,
                         filter_mode, downsample_filter="box"):
@@ -77,9 +74,8 @@ def save_image(img, directory, filename):
     print(f"[SAVE] {out_path}")
 
 
-# ------------------------------------------------------------------
-# HELPERS HIERARCHIE
-# ------------------------------------------------------------------
+
+# healpers hierarchie
 
 _ANISOTROPIC_FILTERS = {"anisotropic"}
 
@@ -108,9 +104,8 @@ def _mipmap_dir(base, image_name, downsample_filter):
     return os.path.join(base, image_name, "mipmap", downsample_filter)
 
 
-# ------------------------------------------------------------------
-# MODES
-# ------------------------------------------------------------------
+
+# modes : mode single ou  mode comparaison ou visualisation pyramide MIP
 
 def mode_single(vertices, triangles, data, width, height,
                 filter_mode, downsample_filter,
@@ -240,9 +235,8 @@ def mode_mipmap_vis(texture, downsample_filter="box",
         plt.show()
 
 
-# ------------------------------------------------------------------
-# POINT D'ENTREE
-# ------------------------------------------------------------------
+
+# MAIN
 
 def main(
     mode="compare",

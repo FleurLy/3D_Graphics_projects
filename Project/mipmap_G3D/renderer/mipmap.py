@@ -2,20 +2,14 @@ import os
 import sys
 import numpy as np
 
-# Assure que convCPyth est importable depuis le meme dossier que mipmap.py
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import convCPyth
 
 # ============================================================
 #  mipmap.py  —  Pyramide MIP + filtres de texture
 #
-#  Ce module implémente :
-#    1. build_mipmaps()      → pyramide MIP (box filter par défaut)
-#    2. Filtres de downsampling pour construire la pyramide :
-#         - box_filter       : moyenne uniforme des 4 voisins
-#         - gaussian_filter  : moyenne pondérée par gaussienne 4×4
-#         - lanczos_filter   : filtre sinc-window haute qualité
-#    3. Filtres de sampling (interpolation) :
+#  Filtres de sampling (interpolation) :
 #         - sample_nearest   : nearest-neighbour (référence / baseline)
 #         - sample_bilinear  : interpolation bilinéaire 4 voisins
 #         - sample_trilinear : bilinéaire × 2 niveaux + lerp (standard)
@@ -338,9 +332,6 @@ def sample_anisotropic(mips, u, v, lod, dudx, dvdx, dudy, dvdy,
     ratio   = max(mag_x, mag_y) / min(mag_x, mag_y)
     n_samp  = int(np.clip(round(ratio), 1, max_samples))
 
-    # dudx/dvdx/dudy/dvdy are already in UV per screen-pixel.
-    # Keep the anisotropic tap spacing in UV-space; dividing by tex_size
-    # again collapses the footprint so the taps nearly coincide.
     step_count = max(n_samp, 1)
     if mag_x >= mag_y:
         step_u = dudx / step_count
