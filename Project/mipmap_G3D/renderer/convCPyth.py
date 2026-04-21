@@ -77,3 +77,16 @@ def lanczosPyth():
         ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),  # out
     ]
     return func
+
+def medPyth():
+    """med_downsample(img, H, W, out) — mediane 2x2, RGB float32."""
+    dll  = _load('med')
+    func = dll.med_downsample
+    func.restype = None
+    func.argtypes = [
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),  # img  H*W*3
+        ctypes.c_int,                                      # H
+        ctypes.c_int,                                      # W
+        ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),  # out  (H/2)*(W/2)*3
+    ]
+    return func

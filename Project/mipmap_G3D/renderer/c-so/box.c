@@ -1,25 +1,20 @@
 #include <stdlib.h>
 
-/*
- * box_downsample : moyenne uniforme de blocs 2x2, image RGB float32.
- * img : H*W*3 float, out : (H/2)*(W/2)*3 float
- */
-void box_downsample(float *img, int H, int W, float *out) {
-    int H2 = H - (H % 2);
-    int W2 = W - (W % 2);
-    int Ho = H2 / 2;
-    int Wo = W2 / 2;
 
-    for (int j = 0; j < Ho; j++) {
-        for (int i = 0; i < Wo; i++) {
-            int base00 = ((2*j)   * W + (2*i)  ) * 3;
-            int base01 = ((2*j)   * W + (2*i+1)) * 3;
-            int base10 = ((2*j+1) * W + (2*i)  ) * 3;
-            int base11 = ((2*j+1) * W + (2*i+1)) * 3;
-            int obase  = (j * Wo + i) * 3;
-            for (int c = 0; c < 3; c++) {
-                out[obase + c] = (img[base00+c] + img[base01+c]
-                                + img[base10+c] + img[base11+c]) * 0.25f;
+void box_downsample(float *img, int height, int width, float *out) {
+    int newH = height / 2;
+    int newW = width / 2;
+
+    for (int j = 0; j < newH; j++) {
+        for (int i = 0; i < newW; i++) {
+            int ind0 = ((2*j)   * width + (2*i)  ) * 3; // indice des pixels concernés 
+            int ind1 = ((2*j)   * width + (2*i+1)) * 3;
+            int ind2 = ((2*j+1) * width + (2*i)  ) * 3;
+            int ind3 = ((2*j+1) * width + (2*i+1)) * 3;
+            int IndCour  = (j * newW + i) * 3;
+            for (int rgb = 0; rgb < 3; rgb++) {     // on change tout les cannaux de couleurs
+                out[IndCour + rgb] = (img[ind0+rgb] + img[ind1+rgb]
+                                + img[ind2+rgb] + img[ind3+rgb])/4.;
             }
         }
     }

@@ -42,6 +42,7 @@ _box_fn         = convCPyth.boxPyth()
 _gaussian_fn    = convCPyth.gaussianPyth()
 _lkernel_fn     = convCPyth.lanczosKernelPyth()
 _lanczos_fn     = convCPyth.lanczosPyth()
+_med_fn         = convCPyth.medPyth()
 
 
 # ──────────────────────────────────────────────────────────────
@@ -102,6 +103,16 @@ def _lanczos_downsample(img, a=2):
     return out_c
 
 
+def _med_downsample(img):
+    """Filtre mediane 2x2 : mediane des 4 voisins par canal, RGB float32."""
+    H, W = img.shape[:2]
+    img_c = np.ascontiguousarray(img.astype(np.float32))
+    out   = np.empty((H // 2, W // 2, 3), dtype=np.float32)
+    out_c = np.ascontiguousarray(out)
+    _med_fn(img_c, H, W, out_c)
+    return out_c
+
+
 # ──────────────────────────────────────────────────────────────
 #  CONSTRUCTION DE LA PYRAMIDE MIP
 # ──────────────────────────────────────────────────────────────
@@ -110,6 +121,7 @@ DOWNSAMPLE_METHODS = {
     "box":      _box_downsample,
     "gaussian": _gaussian_downsample,
     "lanczos":  _lanczos_downsample,
+    "median":   _med_downsample,
 }
 
 

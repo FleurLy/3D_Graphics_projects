@@ -139,7 +139,7 @@ def mode_compare(vertices, triangles, data, width, height,
     if sampling_filters is None:
         sampling_filters = ["nearest", "bilinear", "trilinear", "anisotropic"]
     if downsample_filters is None:
-        downsample_filters = ["box", "gaussian", "lanczos"]
+        downsample_filters = ["box", "gaussian", "lanczos", "median"]
 
     results = {}; times = {}
     for fm in sampling_filters:
@@ -189,7 +189,7 @@ def mode_compare(vertices, triangles, data, width, height,
             d = _filter_dir(output_dir, image_name, "trilinear", dsf)
             save_image(img, d, "render.png")
 
-    fig2, axes2 = plt.subplots(1, 3, figsize=(18, 5))
+    fig2, axes2 = plt.subplots(1, len(downsample_filters), figsize=(6 * len(downsample_filters), 5))
     fig2.suptitle(
         f"{image_name}  —  Comparaison filtres de downsampling (sampling=trilinear)",
         fontsize=13, fontweight='bold')
