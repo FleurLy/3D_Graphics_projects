@@ -125,6 +125,79 @@ DOWNSAMPLE_METHODS = {
 }
 
 
+def _downsample_1d(texture, downsample_filter="box"):
+    """
+    Downsample a 1D texture stored as (1, W, 3) or (H, 1, 3).
+
+    This path is only used when the original texture is already 1D.
+    Regular 2D textures keep the existing behavior and stop once one axis
+    reaches 1.
+    """
+    H, W = texture.shape[:2]
+    if H > 1 and W > 1:
+        raise ValueError("_downsample_1d expects a 1D texture")
+    if H == 1 and W == 1:
+        return texture.copy()
+
+    horizontal = H == 1
+    size = W if horizontal else H
+    out_size = max(1, size // 2)
+    out_shape = (1, out_size, 3) if horizontal else (out_size, 1, 3)
+    out = np.empty(out_shape, dtype=np.float32)
+
+    if downsample_filter == "box":
+        for i in range(out_size):
+            start = 2 * i
+            end = min(start + 2, size)
+            if horizontal:
+                out[0, i] = np.mean(texture[0, start:end], axis=0)
+            else:
+                out[i, 0] = np.mean(texture[start:end, 0], axis=0)
+        return out
+
+    if downsample_filter == "gaussian":
+        kernel = np.array([0.0625, 0.4375, 0.4375, 0.0625], dtype=np.float32)
+        offsets = (-1, 0, 1, 2)
+        for i in range(out_size):
+            center = 2 * i
+            acc = np.zeros(3, dtype=np.float32)
+            weight_sum = 0.0
+            for weight, offset in zip(kernel, offsets):
+                idx = center + offset
+                if 0 <= idx < size:
+                    sample = texture[0, idx] if horizontal else texture[idx, 0]
+                    acc += weight * sample
+                    weight_sum += weight
+            if horizontal:
+                out[0, i] = acc / weight_sum
+            else:
+                out[i, 0] = acc / weight_sum
+        return out
+
+    if downsample_filter == "lanczos":
+        a = 2
+        for i in range(out_size):
+            center = 2.0 * i + 0.5
+            start = max(0, int(np.floor(center - a + 1)))
+            end = min(size, int(np.ceil(center + a)))
+            positions = np.arange(start, end, dtype=np.float32)
+            weights = _lanczos_kernel_vals(positions - center, a=a)
+            weight_sum = float(np.sum(weights))
+            acc = np.zeros(3, dtype=np.float32)
+            if weight_sum > 1e-8:
+                norm = weights / weight_sum
+                for weight, idx in zip(norm, positions.astype(int)):
+                    sample = texture[0, idx] if horizontal else texture[idx, 0]
+                    acc += weight * sample
+            if horizontal:
+                out[0, i] = np.clip(acc, 0.0, 1.0)
+            else:
+                out[i, 0] = np.clip(acc, 0.0, 1.0)
+        return out
+
+    raise ValueError(f"Unknown downsample filter: {downsample_filter}")
+
+
 def build_mipmaps(texture, downsample_filter="box"):
     """
     Construit la pyramide MIP complete a partir de la texture originale.
@@ -144,11 +217,18 @@ def build_mipmaps(texture, downsample_filter="box"):
     fn      = DOWNSAMPLE_METHODS.get(downsample_filter, _box_downsample)
     current = texture.astype(np.float32) / 255.0
     mips    = [current]
+    original_is_1d = current.shape[0] == 1 or current.shape[1] == 1
 
-    while current.shape[0] > 1 and current.shape[1] > 1:
-        down    = fn(current)
-        mips.append(down)
-        current = down
+    if original_is_1d:
+        while current.shape[0] > 1 or current.shape[1] > 1:
+            down = _downsample_1d(current, downsample_filter)
+            mips.append(down)
+            current = down
+    else:
+        while current.shape[0] > 1 and current.shape[1] > 1:
+            down    = fn(current)
+            mips.append(down)
+            current = down
 
     return mips
 
