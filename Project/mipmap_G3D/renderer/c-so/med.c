@@ -29,7 +29,7 @@ void med_downsample(float *img, int height, int width, float *out) {
                         }
                     }
                 }
-                out[IndCour + rgb] = (tab[2]+tab[3])/2; // je prends la moyenne du 2 et 3 couleurs car sinon il y a souci d'affichage pour le damier
+                out[IndCour + rgb] = (tab[1]+tab[2])/2; // mediane (moyenne des points median car sinon ça tend vers le blanc ou le noir)
             }
         }
     }

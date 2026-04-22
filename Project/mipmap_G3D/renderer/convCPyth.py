@@ -5,7 +5,7 @@ from numpy.ctypeslib import ndpointer
 
 def load(name):
     lib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            'c-so', f'{name}.{'so'}')
+                            'c-so', f'{name}.so')
     return ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL)
 
 
