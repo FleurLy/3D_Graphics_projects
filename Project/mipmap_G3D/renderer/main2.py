@@ -125,9 +125,10 @@ def mode_all(vertices, triangles, data, width, height,
               downsample_filter="box", image_name=""):
 
     for fm in ["nearest", "bilinear", "trilinear", "anisotropic"]:
-        img, _ = render_with_filter(vertices, triangles, data, width, height,
-                                     fm, downsample_filter)
-        save_image(img, _filter_dir(image_name, fm, downsample_filter), "render.png")
+        for dsf in ["box", "gaussian", "lanczos", "median"]:
+            img, dt = render_with_filter(vertices, triangles, data, width, height,
+                                        fm, downsample_filter)
+            save_image(img, _filter_dir(image_name, fm, dsf), f"render ({dt:.1f} s).png")
 
 
 
@@ -207,10 +208,10 @@ def main(
 
 main(
     mode="all",
-    filter_mode="nearest",
-    downsample_filter="box",
-    width=256,
-    height=144,
+    filter_mode="trilinear",
+    downsample_filter="lanczos",
+    width=512,
+    height=288,
     name="damier3",
     light_position=None,
 )
