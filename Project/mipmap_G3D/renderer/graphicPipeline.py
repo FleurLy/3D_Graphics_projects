@@ -18,6 +18,10 @@ class Fragment:
     Attributs added:
       lod               : LOD isotropique calcule
       dudx,dvdx,dudy,dvdy : derivees partielles UV (pour anisotropique)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
     """
 
     def __init__(self, x, y, depth, interpolated_data, lod=0.0,
@@ -43,7 +47,12 @@ class GraphicPipeline:
                  filter_mode="trilinear",
                  downsample_filter="box"):
         """
+<<<<<<< HEAD
         Parametres added :
+=======
+        Parametres  added:
+          
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
           filter_mode        : filtre de sampling ("nearest", "bilinear",
                                "trilinear", "anisotropic")
           downsample_filter  : filtre de downsampling pour la pyramide
@@ -94,10 +103,15 @@ class GraphicPipeline:
         outputVertex[16] = (outputVertex[0] + 1.0) * 0.5 * self.width
         outputVertex[17] = (outputVertex[1] + 1.0) * 0.5 * self.height
         
+<<<<<<< HEAD
+=======
+
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
         outputVertex[18] = w
 
         return outputVertex
 
+<<<<<<< HEAD
     
     
     def Rasterizer(self, v0, v1, v2):
@@ -105,41 +119,93 @@ class GraphicPipeline:
         fragments = []
 
         #culling backface
+=======
+
+
+    def Rasterizer(self, v0, v1, v2):
+
+        fragments = []
+
+        # culling backface
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
         area = edgeSide(v0, v1, v2)
         if area <= 0:
             return fragments
 
+<<<<<<< HEAD
         # Conversion NDC -> pixels pour calcul de la bounding box et des derivees partielles
         def ndc_to_px(v):
             return np.array([(v[0] + 1.0) * 0.5 * self.width,
                              (v[1] + 1.0) * 0.5 * self.height])
+=======
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
 
-        p0 = ndc_to_px(v0); p1 = ndc_to_px(v1); p2 = ndc_to_px(v2)
+        #AABBox computation
+        #compute vertex coordinates in screen space
+        v0_image = np.array([0,0])
+        v0_image[0] = (v0[0]+1.0)/2.0 * self.width 
+        v0_image[1] = ((v0[1]+1.0)/2.0) * self.height 
 
+
+        v1_image = np.array([0,0])
+        v1_image[0] = (v1[0]+1.0)/2.0 * self.width 
+        v1_image[1] = ((v1[1]+1.0)/2.0) * self.height 
+
+
+        v2_image = np.array([0,0])
+        v2_image[0] = (v2[0]+1.0)/2.0 * self.width 
+        v2_image[1] = (v2[1]+1.0)/2.0 * self.height 
+
+        #compute the two point forming the AABBox
+        A = np.min(np.array([v0_image,v1_image,v2_image]), axis = 0)
+        B = np.max(np.array([v0_image,v1_image,v2_image]), axis = 0)
+
+        #cliping the bounding box with the borders of the image
+        max_image = np.array([self.width-1,self.height-1])
+        min_image = np.array([0.0,0.0])
+
+        A  = np.max(np.array([A,min_image]),axis = 0)
+        B  = np.min(np.array([B,max_image]),axis = 0)
+        
+        #cast bounding box to int
+        A = A.astype(int)
+        B = B.astype(int)
+        #Compensate rounding of int cast
+        B = B + 1
+
+<<<<<<< HEAD
         # AABBbox du triangle en pixels
         A = np.floor(np.min([p0, p1, p2], axis=0)).astype(int)
         B = np.ceil( np.max([p0, p1, p2], axis=0)).astype(int)
         A = np.clip(A, [0, 0], [self.width - 1, self.height - 1])
         B = np.clip(B, [0, 0], [self.width - 1, self.height - 1])
+=======
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
 
         #Calcul des derivees partielles dU/dx, dU/dy, dV/dx, dV/dy
         u0, v_0 = v0[12], v0[13]
         u1, v_1 = v1[12], v1[13]
         u2, v_2 = v2[12], v2[13]
 
-        dx_01 = p1[0] - p0[0]; dy_01 = p1[1] - p0[1]
-        dx_02 = p2[0] - p0[0]; dy_02 = p2[1] - p0[1]
-        du_01 = u1 - u0;        dv_01 = v_1 - v_0
-        du_02 = u2 - u0;        dv_02 = v_2 - v_0
+        dx_01 = v1_image[0] - v0_image[0]
+        dy_01 = v1_image[1] - v0_image[1]
+
+        dx_02 = v2_image[0] - v0_image[0]
+        dy_02 = v2_image[1] - v0_image[1]
+
+        du_01 = u1 - u0       
+        dv_01 = v_1 - v_0
+
+        du_02 = u2 - u0        
+        dv_02 = v_2 - v_0
 
         # Resolution du systeme 2x2 pour dU/dx, dU/dy, dV/dx, dV/dy
         det = dx_01 * dy_02 - dx_02 * dy_01
         if abs(det) > 1e-10:
-            inv_det = 1.0 / det
-            dudx = (du_01 * dy_02 - du_02 * dy_01) * inv_det
-            dudy = (dx_01 * du_02 - dx_02 * du_01) * inv_det
-            dvdx = (dv_01 * dy_02 - dv_02 * dy_01) * inv_det
-            dvdy = (dx_01 * dv_02 - dx_02 * dv_01) * inv_det
+            dudx = (du_01 * dy_02 - du_02 * dy_01) / det
+            dudy = (dx_01 * du_02 - dx_02 * du_01) / det
+            dvdx = (dv_01 * dy_02 - dv_02 * dy_01) / det
+            dvdy = (dx_01 * dv_02 - dx_02 * dv_01) / det
         else:
             dudx = dvdx = dudy = dvdy = 0.0
 
@@ -150,46 +216,70 @@ class GraphicPipeline:
 
         lod = compute_lod_accurate(dudx, dvdx, dudy, dvdy, tex_size)
 
-        # ---- Boucle sur les pixels de la AABB ----------------
+        # AABBbox du triangle en pixels
         for j in range(A[1], B[1] + 1):
             for i in range(A[0], B[0] + 1):
 
-                x = (i + 0.5) / self.width  * 2.0 - 1.0
-                y = (j + 0.5) / self.height * 2.0 - 1.0
+                x = (i + 0.5) / self.width  * 2.0 - 1
+                y = (j + 0.5) / self.height * 2.0 - 1
                 p = np.array([x, y])
 
-                a0 = edgeSide(p, v0, v1)
-                a1 = edgeSide(p, v1, v2)
-                a2 = edgeSide(p, v2, v0)
+                area0 = edgeSide(p,v0,v1)
+                area1 = edgeSide(p,v1,v2)
+                area2 = edgeSide(p,v2,v0)
 
-                if a0 >= 0 and a1 >= 0 and a2 >= 0:
-                    l0 = a1 / area; l1 = a2 / area; l2 = a0 / area
+                
+                if (area0 >= 0 and area1 >= 0 and area2 >= 0) : 
+                    
+                    #Computing 2d barricentric coordinates
+                    lambda0 = area1/area
+                    lambda1 = area2/area
+                    lambda2 = area0/area
+
 
                     iz0 = 1.0 / v0[18] if abs(v0[18]) > 1e-8 else 1.0
                     iz1 = 1.0 / v1[18] if abs(v1[18]) > 1e-8 else 1.0
                     iz2 = 1.0 / v2[18] if abs(v2[18]) > 1e-8 else 1.0
 
-                    z = l0 * v0[2] + l1 * v1[2] + l2 * v2[2]
+                    denom = lambda0*iz0 + lambda1*iz1 + lambda2*iz2
 
-                    denom = l0*iz0 + l1*iz1 + l2*iz2
                     if abs(denom) < 1e-12:
                         continue
-                    w0 = (l0 * iz0) / denom
-                    w1 = (l1 * iz1) / denom
-                    w2 = (l2 * iz2) / denom
+                    z = 1.0 / denom
 
-                    # On interpole uniquement les attributs de 3 à 17
-                    interp = v0[3:18] * w0 + v1[3:18] * w1 + v2[3:18] * w2
+                    w0 = (lambda0 * iz0) / denom
+                    w1 = (lambda1 * iz1) / denom
+                    w2 = (lambda2 * iz2) / denom
 
-                    fragments.append(Fragment(i, j, z, interp, lod,
+                    l = v0.shape[0]
+                    #interpolating
+                    interpolated_data = v0[3:l] * w0 + v1[3:l] * w1 + v2[3:l] * w2
+
+                    #Emiting Fragment
+                    fragments.append(Fragment(i, j, z, interpolated_data, lod,
                                               dudx, dvdx, dudy, dvdy))
 
         return fragments
 
+<<<<<<< HEAD
    
    
     def fragmentShader(self, fragment, data):
         
+=======
+    
+    
+    def fragmentShader(self, fragment, data):
+        """
+        Calcule la couleur finale : eclairage de Phong + texture.
+
+        Le filtre de texture est selectionne via self.filter_mode :
+          "nearest"     -> sample_nearest sur le niveau floor(LOD)
+          "bilinear"    -> sample_bilinear sur le niveau floor(LOD)
+          "trilinear"   -> sample_trilinear (standard)
+          "anisotropic" -> sample_anisotropic (multi-tap directionnel)
+        """
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
         N = fragment.interpolated_data[0:3]
         n_len = np.linalg.norm(N)
         if n_len < 1e-8:
@@ -208,20 +298,29 @@ class GraphicPipeline:
             fragment.output = np.zeros(3); return
         L = L / l_len
 
-        NdotL    = np.dot(N, L)
-        R        = 2.0 * NdotL * N - L
+        R        = 2.0 * np.dot(N, L) * N - L
         ambient  = 1.0
-        diffuse  = max(NdotL, 0.0)
+        diffuse  = max(np.dot(N, L), 0.0)
         specular = pow(max(np.dot(R, V), 0.0), 64)
 
-        ka = 0.1; kd = 0.9; ks = 0.3
+        ka = 0.1 
+        kd = 0.9
+        ks = 0.3
         phong = ka * ambient + kd * diffuse + ks * specular
+<<<<<<< HEAD
         phong = np.ceil(phong * 4 + 1) / 6.0  
+=======
+        phong = np.ceil(phong * 4 + 1) / 6.0 
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
 
         u = fragment.interpolated_data[9]
         v = fragment.interpolated_data[10]
 
+<<<<<<< HEAD
         # echantillonnage de la texture selon le mode choisi et LOD calcule
+=======
+        # echantillonnage de la texture avec le filtre selectionne
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
         fm = self.filter_mode
 
         if fm == "nearest":
@@ -246,9 +345,14 @@ class GraphicPipeline:
 
         fragment.output = np.array([phong, phong, phong]) * tex_color
 
+<<<<<<< HEAD
   
   
   
+=======
+ 
+ 
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
     def draw(self, vertices, triangles, data):
         
         print(f"[INFO] Construction pyramide MIP "
@@ -266,11 +370,18 @@ class GraphicPipeline:
             self.newVertices[i] = self.VertexShader(vertices[i], data)
 
         fragments = []
+<<<<<<< HEAD
         #Calling Rasterizer
         for t in triangles:
             v0 = self.newVertices[t[0]]
             v1 = self.newVertices[t[1]]
             v2 = self.newVertices[t[2]]
+=======
+        for tri in triangles:
+            v0 = self.newVertices[tri[0]]
+            v1 = self.newVertices[tri[1]]
+            v2 = self.newVertices[tri[2]]
+>>>>>>> 003adc19e785d0008afae32b2c91b410bfa4354c
             fragments.extend(self.Rasterizer(v0, v1, v2))
 
 
