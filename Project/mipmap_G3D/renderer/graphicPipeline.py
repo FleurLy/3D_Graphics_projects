@@ -216,9 +216,9 @@ class GraphicPipeline:
         diffuse  = max(np.dot(N, L), 0.0)
         specular = pow(max(np.dot(R, V), 0.0), 64)
 
-        ka = 0.1
-        kd = 0.9
-        ks = 0.3
+        ka = 0.2
+        kd = 1.0
+        ks = 0.05
         phong = ka * ambient + kd * diffuse + ks * specular
         phong = np.ceil(phong * 4 + 1) / 6.0
 
