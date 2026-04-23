@@ -50,13 +50,33 @@ def make_camera_suzanne():
     right    = np.array([-0.577,  0.577,  0.0  ])
     return Camera(position, lookAt, up, right), position
 
+def make_camera_plane():
+    """Caméra générique pour toutes les surfaces planes (damier, briques, etc.)"""
+    position = np.array([0.0, 15.0, -10.0])
+    lookAt   = np.array([0.0, -0.555, 0.832])
+    up       = np.array([0.0,  0.832, 0.555])
+    right    = np.array([1.0,  0.0,   0.0  ])
+    return Camera(position, lookAt, up, right), position
+
 cameras = {
-    "damier"  : make_camera_damier,
-    "damier2" : make_camera_damier2,
-    "damier3" : make_camera_damier3,
-    "wall"    : make_camera_wall,
-    "wall2"   : make_camera_wall,
-    "suzanne" : make_camera_suzanne,
+    # Scènes originales
+    "damier"         : make_camera_damier,
+    "damier2"        : make_camera_damier2,
+    "damier3"        : make_camera_damier3,
+    "wall"           : make_camera_wall,
+    "wall2"          : make_camera_wall,
+    "suzanne"        : make_camera_suzanne,
+    # Nouvelles textures (surfaces planes)
+    "carrelage"      : make_camera_plane,
+    "checkerboard"   : make_camera_plane,
+    "brick"          : make_camera_plane,
+    "wood"           : make_camera_plane,
+    "marble"         : make_camera_plane,
+    "stripes_diag"   : make_camera_plane,
+    "grid"           : make_camera_plane,
+    "fabric"         : make_camera_plane,
+    "radial_gradient": make_camera_plane,
+    "noise"          : make_camera_plane,
 }
 
 
@@ -206,12 +226,85 @@ def main(
 
 
 
-main(
-    mode="all",
-    filter_mode="trilinear",
-    downsample_filter="lanczos",
-    width=512,
-    height=288,
-    name="damier3",
-    light_position=None,
-)
+def discover_textures():
+    """
+    Retourne la liste de toutes les scènes disponibles :
+    = les noms présents à la fois dans texture/ et ply/.
+    Utile pour lancer main() sur toutes les textures d'un coup.
+    """
+    tex_dir = os.path.join(_dir, "texture")
+    ply_dir = os.path.join(_dir, "ply")
+    textures = {os.path.splitext(f)[0]
+                for f in os.listdir(tex_dir)
+                if f.endswith(".png") and "Identifier" not in f}
+    plys     = {os.path.splitext(f)[0]
+                for f in os.listdir(ply_dir)
+                if f.endswith(".ply")}
+    return sorted(textures & plys & cameras.keys())
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Renderer 3D — Mipmapping",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+Exemples :
+  # Rendu unique : trilinear sur damier
+  python main2.py --name damier --mode single --filter trilinear --ds box
+
+  # Tous les filtres sur une seule texture
+  python main2.py --name brick --mode all
+
+  # Toutes les textures disponibles, mode all
+  python main2.py --all --mode all
+
+  # Visualisation pyramide MIP
+  python main2.py --name carrelage --mode mipmap_vis --ds gaussian
+        """
+    )
+
+    parser.add_argument("--name",   default="damier",
+                        help=f"Nom de la texture. Disponibles : {discover_textures()}")
+    parser.add_argument("--mode",   default="single",
+                        choices=["single", "all", "mipmap_vis", "mipmap_vis_all"],
+                        help="Mode de rendu (défaut: single)")
+    parser.add_argument("--filter", default="trilinear",
+                        choices=["nearest", "bilinear", "trilinear", "anisotropic"],
+                        help="Filtre de sampling (défaut: trilinear)")
+    parser.add_argument("--ds",     default="box",
+                        choices=["box", "gaussian", "lanczos", "median"],
+                        help="Filtre de downsampling (défaut: box)")
+    parser.add_argument("--width",  type=int, default=512,
+                        help="Largeur de l'image (défaut: 512)")
+    parser.add_argument("--height", type=int, default=288,
+                        help="Hauteur de l'image (défaut: 288)")
+    parser.add_argument("--all",    action="store_true",
+                        help="Traiter toutes les textures disponibles")
+
+    args = parser.parse_args()
+
+    if args.all:
+        # Lance main() sur chaque texture disponible
+        available = discover_textures()
+        print(f"[INFO] Traitement de {len(available)} texture(s) : {available}")
+        for name in available:
+            print(f"\n{'─'*50}\n  → {name}\n{'─'*50}")
+            main(
+                mode=args.mode,
+                filter_mode=args.filter,
+                downsample_filter=args.ds,
+                width=args.width,
+                height=args.height,
+                name=name,
+            )
+    else:
+        main(
+            mode=args.mode,
+            filter_mode=args.filter,
+            downsample_filter=args.ds,
+            width=args.width,
+            height=args.height,
+            name=args.name,
+        )
